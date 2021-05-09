@@ -1,15 +1,19 @@
 MNIST_ue
 ==============================
 
-UE AI Master activity
+UE AI Master activity :: Author - Juan Carlos Gálvez Martínez
 
-Project Organization
-:: Author - Juan Carlos Gálvez Martínez
+
+CNN web service based on python Flask
+
 ------------
+# Project Organization
 
     ├── LICENSE
     ├── Makefile           <- Makefile with commands like `make data` or `make train`
     ├── README.md          <- The top-level README for developers using this project.
+    │
+    ├── app                <- REST api tha serves model actions
     │
     ├── data               <- Data source files.
     │
@@ -46,9 +50,52 @@ Project Organization
     │   │
     │   └── visualization  <- Scripts to create exploratory and results oriented visualizations
     │       └── visualize.py
-    ├── app                <- REST api tha serves model actions
     │
     └── tox.ini            <- tox file with settings for running tox; see tox.readthedocs.io
 
 
 --------
+
+# Instructions
+
+## Set enviromnet variables
+
+You must create an .env file on the project root directory. You can use the .env.template file for this purpose, setting your IBM Cloud credential values.
+
+## Deployment
+
+### Using Flask:
+
+For development purpose you can launch the webapp typing:
+
+```{bash}
+$ flask run
+```
+The webapp will published at *127.0.0.1:5000*
+
+
+### Using Gunicorn:
+
+For production purpose you can launch the webapp typing:
+
+```{bash}
+$ gunicorn --bind 0.0.0.0:8899 --timeout 12000 wsgi:app
+```
+
+The webapp will published at *0.0.0.0:8899*
+
+### Using Docker:
+
+Build the docker image typing:
+
+```{bash}
+$ docker build -t mnist_app .
+```
+*(don’t forget the dot)*
+
+Run the docker image:
+```{bash}
+docker run -it -d -p 8899:8899 mnist_app
+```
+
+The webapp will published at *0.0.0.0:8899*

@@ -1,13 +1,12 @@
 import pickle
-import os
+import logging
 
-from ibm_botocore import errorfactory
 from ibm_cloud_sdk_core import ApiException
 from ibmcloudant.cloudant_v1 import Document
 
-from flask import Flask, request, current_app
-from flask_restx import Resource, Api
-from sklearn.pipeline import Pipeline, make_pipeline
+from flask import Flask, current_app
+from flask_restx import Api
+from sklearn.pipeline import make_pipeline
 from src.vendor.IBM import cloudant, cos
 from src.models.build_model import build_model, DEFAULT_PARAMS
 from src.features.build_features import Scaler, Unsqueeze
@@ -73,13 +72,19 @@ def create_app():
 
     app.config.from_pyfile('config.py')
 
-    with app.app_context():
-        setup_model()
+    @app.before_first_request
+    def warmup():
+        with app.app_context():
+            setup_model()
 
     from app.api_factory import make_namespaces
 
     api.init_app(app)
     for ns in make_namespaces(api):
         api.add_namespace(ns)
+
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)
 
     return app
