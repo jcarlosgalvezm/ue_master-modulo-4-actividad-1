@@ -1,0 +1,5 @@
+applications:
+  - name: mnist-ue-master-jcarlosgalvezm
+    random-route: true
+    memory: 256M
+

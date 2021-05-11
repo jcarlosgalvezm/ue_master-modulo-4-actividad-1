@@ -55,22 +55,26 @@ def setup_model():
 
     try:
         model = cos_client.get_object(Bucket=bucket, Key=fname)
-        current_app.logger.info(f'Model v{rev} loaded...')
+        current_app.logger.info(f'Latest model v{rev} loaded...')
     except cos_client.exceptions.NoSuchKey:
         project_dir = current_app.config['PROJECT_DIR']
         train_ds, test_ds = get_dataset(f'{project_dir}/data')
         model = build_model(bucket=bucket)
+        model.initialize()
         pipeline = make_pipeline(Scaler(), Unsqueeze(), model)
         pipeline.fit(train_ds.data[:].float(), train_ds.targets[:])
         cos_client.put_object(Bucket=bucket, Key=fname,
             Body=pickle.dumps(model))
-        current_app.logger.info(f'Model v{rev} created and loaded...')
+        current_app.logger.info(f'Latest model v{rev} created and loaded...')
 
 
 def create_app():
     app = Flask(__name__)
 
-    app.config.from_pyfile('config.py')
+    if app.config['ENV'] == 'development':
+        app.config.from_pyfile('config.py')
+    else:
+        app.config.from_pyfile('config.prod.py')
 
     @app.before_first_request
     def warmup():
