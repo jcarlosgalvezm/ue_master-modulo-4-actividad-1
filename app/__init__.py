@@ -59,10 +59,11 @@ def setup_model():
     except cos_client.exceptions.NoSuchKey:
         project_dir = current_app.config['PROJECT_DIR']
         train_ds, test_ds = get_dataset(f'{project_dir}/data')
+        X_train, y_train = train_ds.data[:].float(), train_ds.targets[:]
         model = build_model(bucket=bucket)
         model.initialize()
         pipeline = make_pipeline(Scaler(), Unsqueeze(), model)
-        pipeline.fit(train_ds.data[:].float(), train_ds.targets[:])
+        pipeline.fit(X_train, y_train)
         cos_client.put_object(Bucket=bucket, Key=fname,
             Body=pickle.dumps(model))
         current_app.logger.info(f'Latest model v{rev} created and loaded...')

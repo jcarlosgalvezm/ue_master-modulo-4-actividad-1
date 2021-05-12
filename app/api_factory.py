@@ -1,10 +1,12 @@
 import io
 import pickle
 
-from flask_restx import Namespace, Resource, fields
+from flask import current_app
+from flask_restx import Namespace, Resource
 from PIL import Image
 from sklearn.pipeline import make_pipeline
 from src.vendor.IBM import cloudant, cos
+from src.data.make_dataset import get_dataset
 from src.features.build_features import Preprocess, Scaler, Unsqueeze
 from werkzeug.datastructures import FileStorage
 
@@ -40,12 +42,35 @@ def make_namespaces(api):
             @ns.route('/info')
             class Info(Resource):
 
+                FNAME = fname
+                BUCKET = bucket
                 REVISION = f'{num}-{rev}'
 
                 def get(self):
                     '''Model info'''
-                    return cloudant_client.get_document(db='models',
-                        doc_id='mnist', _rev=self.REVISION).get_result()
+                    project_dir = current_app.config['PROJECT_DIR']
+                    train_ds, test_ds = get_dataset(f'{project_dir}/data')
+                    X_test, y_test= test_ds.data[:].float(), test_ds.targets[:]
+
+                    model_buf = io.BytesIO()
+                    cos_client.download_fileobj(Bucket=self.BUCKET,
+                        Key=self.FNAME, Fileobj=model_buf)
+                    model_buf.seek(0)
+                    model = pickle.load(model_buf)
+
+                    pipeline = make_pipeline(
+                        Scaler(),
+                        Unsqueeze(),
+                        model
+                        )
+                    score = pipeline.score(X_test, y_test)
+                    return {
+                        'definition': cloudant_client.get_document(
+                                db='models',
+                                doc_id='mnist',
+                                rev=self.REVISION).get_result(),
+                        'score': score
+                        }
 
             @ns.route('/predict')
             @ns.expect(upload_parser)
@@ -58,17 +83,16 @@ def make_namespaces(api):
                     '''Predict number'''
                     args = upload_parser.parse_args()
 
-                    img_buf = io.BytesIO()
                     model_buf = io.BytesIO()
+                    cos_client.download_fileobj(Bucket=self.BUCKET,
+                        Key=self.FNAME, Fileobj=model_buf)
+                    model_buf.seek(0)
+                    model = pickle.load(model_buf)
 
+                    img_buf = io.BytesIO()
                     args['image'].save(img_buf)
                     uploaded_img = Image.open(img_buf)
 
-                    cos_client.download_fileobj(Bucket=self.BUCKET,
-                        Key=self.FNAME, Fileobj=model_buf)
-
-                    model_buf.seek(0)
-                    model = pickle.load(model_buf)
                     pipeline = make_pipeline(
                         Preprocess(),
                         Scaler(),
